@@ -128,6 +128,10 @@ At the prompt:
 When stdin is not a terminal (`ff foo | ...`, scripts) the best match is used
 automatically, like `--best`.
 
+After every indexed search `ff` prints a short reminder that newly created
+folders only show up after `ff -u` (the command is highlighted in orange).
+The reminder is suppressed when stderr is redirected, so scripts stay quiet.
+
 ## Configuration
 
 `ff` reads `~/.folderfind.json` (optional). Every key can be omitted:

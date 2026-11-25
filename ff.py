@@ -58,6 +58,8 @@ DEFAULT_CONFIG = {
 }
 
 RESULT_COLOR = "\x1b[1;36m"
+ORANGE_COLOR = "\x1b[38;5;208m"
+DIM_COLOR = "\x1b[2m"
 RESET_COLOR = "\x1b[0m"
 REFINE = object()   # sentinel returned by the picker
 
@@ -293,9 +295,12 @@ def cache_dir():
     if IS_WINDOWS:
         base = os.environ.get("LOCALAPPDATA") or os.path.expanduser(
             os.path.join("~", "AppData", "Local"))
-    else:
-        base = os.environ.get("XDG_CACHE_HOME") or os.path.join(
-            os.path.expanduser("~"), ".cache")
+        # The installer puts the program in %LOCALAPPDATA%\folderFind, so keep
+        # the index in a subfolder: program files and cache must never be
+        # deleted together by accident.
+        return os.path.join(base, APP, "cache")
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.join(
+        os.path.expanduser("~"), ".cache")
     return os.path.join(base, APP)
 
 
@@ -724,6 +729,28 @@ install the PowerShell integration instead:
 # commands
 # --------------------------------------------------------------------------
 
+def new_folder_note():
+    """One-line reminder that the index has to be refreshed for new folders."""
+    command = "ff -u"
+    if enable_ansi(sys.stderr):
+        command = ORANGE_COLOR + command + RESET_COLOR
+        return (DIM_COLOR + "note: new folders won't appear until you re-index: "
+                + RESET_COLOR + command)
+    return "note: new folders won't appear until you re-index: " + command
+
+
+def no_match_message(term, count):
+    return ("no folder matched %r (the index has %s folders).\n"
+            "try fewer or shorter words if you expected an older folder.\n%s"
+            % (term, "{:,}".format(count), new_folder_note()))
+
+
+def show_search_note():
+    """Print the re-index hint after an indexed search (terminal only)."""
+    if sys.stderr.isatty():
+        print(new_folder_note(), file=sys.stderr)
+
+
 def write_output(path):
     """Hand the chosen path to the wrapper (or stdout when run directly)."""
     out_file = os.environ.get("FOLDERFIND_OUT")
@@ -871,10 +898,9 @@ def main(argv=None):
                     return 1
             matches, total = search(dirs, term, limit, os.getcwd())
             if not matches:
-                print("no folder matched %r (index has %s folders).\n"
-                      "try fewer or shorter words, or refresh with: ff -u"
-                      % (term, "{:,}".format(len(dirs))), file=sys.stderr)
+                print(no_match_message(term, len(dirs)), file=sys.stderr)
                 return 1
+            show_search_note()
         else:
             matches, total = local_dirs(limit)
             if not matches:

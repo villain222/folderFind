@@ -1,5 +1,6 @@
 """Tests for ff.  Run with:  python -m unittest discover -s tests -v"""
 
+import io
 import os
 import sys
 import tempfile
@@ -95,6 +96,35 @@ class PickerTests(unittest.TestCase):
         self.assertEqual(ff.parse_choice("", 10), ("quit", None))
         self.assertEqual(ff.parse_choice("r", 10), ("refine", None))
         self.assertEqual(ff.parse_choice("abc", 10)[0], "invalid")
+
+
+class MessageTests(unittest.TestCase):
+    def test_no_match_mentions_reindexing_for_new_folders(self):
+        message = ff.no_match_message("newproj", 1234)
+        self.assertIn("newproj", message)
+        self.assertIn("1,234", message)
+        self.assertIn("ff -u", message)
+        self.assertIn("new folders won't appear until you re-index", message)
+
+    def test_reindex_note_is_printed_after_a_match_in_a_terminal(self):
+        class FakeTTY(io.StringIO):
+            def isatty(self):
+                return True
+
+        fake = FakeTTY()
+        with mock.patch.object(ff.sys, "stderr", fake):
+            ff.show_search_note()
+        self.assertIn("ff -u", fake.getvalue())
+
+    def test_reindex_note_is_silent_when_stderr_is_redirected(self):
+        class FakePipe(io.StringIO):
+            def isatty(self):
+                return False
+
+        fake = FakePipe()
+        with mock.patch.object(ff.sys, "stderr", fake):
+            ff.show_search_note()
+        self.assertEqual(fake.getvalue(), "")
 
 
 class IndexTests(unittest.TestCase):
